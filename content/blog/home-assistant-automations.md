@@ -55,7 +55,7 @@ On weekday mornings I run another check before the household is usually gone for
 
 ### The Doorbell Fingerprint Chain Reaction
 
-This is probably my favorite automation in the whole system. My UniFi doorbell can read a registered fingerprint or NFC tag and hit a webhook in Home Assistant. One automation then does the whole routine: phone notification, disarm SimpliSafe, unlock the front door, turn on a nearby inside light. Walking up and having the door ready without digging for keys still feels good every time.
+This is probably my favorite automation in the whole system. My [UniFi doorbell](https://store.ui.com/us/en/category/cameras-doorbells/collections/pro-store-doorbells-chimes/products/uvc-g4-doorbell-pro) can read a registered fingerprint or NFC tag and hit a webhook in Home Assistant. One automation then does the whole routine: phone notification, disarm SimpliSafe, unlock the front door, turn on a nearby inside light. Walking up and having the door ready without digging for keys still feels good every time.
 
 ```yaml
 alias: Doorbell fingerprint (example)
