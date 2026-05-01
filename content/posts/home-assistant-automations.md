@@ -11,53 +11,54 @@ tags = [
 slug = "home-assistant-automations"
 +++
 
-I've been running Home Assistant for a while now, and what started as a weekend project to control a few lights has evolved into a comprehensive home automation system that manages everything from security to air quality to 3D printer safety. Here's a deep dive into the automations I've built, how they work, and the design philosophy behind them.
+I've been running Home Assistant for a while now. What started as a weekend project to control a few lights turned into a setup that handles security, air quality, and a few safety nets around the 3D printer. Below is what I actually run, how it works, and why I built it this way.
 
 ---
 
 ## The Philosophy: Automation Should Disappear
 
-The best home automation is the kind you stop thinking about. My goal was never to build a dashboard I stare at — it was to build a system that runs quietly in the background, making my home safer and more comfortable without me having to think about it. After many iterations, I've settled on a stack centered around SimpliSafe for security, UniFi Protect for cameras, Philips Hue for lighting, and a Dyson fan for air quality — all orchestrated through Home Assistant.
+The best home automation is the kind you stop thinking about. I never wanted a wall of tiles to babysit. I wanted something that runs in the background and keeps the house a little safer and more comfortable without me thinking about it. After a lot of tinkering I landed on SimpliSafe for security, UniFi Protect for cameras, Philips Hue for lights, and a Dyson for air quality, all glued together in Home Assistant.
 
 ---
 
 ## Security: A Layered Defense
 
-Security is where I've put the most thought, and it shows in the number of overlapping automations I've built.
+Security is where I spent the most time, and it shows in how many overlapping automations ended up in the config.
 
 ### Automatic Alarm Arming
 
-Forgetting to arm the alarm is one of those small anxieties that adds up over time. I solved it with a cascade of scheduled arming automations — at 9 PM, 10 PM, and 11:55 PM — each with a condition that only fires if the alarm is currently disarmed. This means the earliest trigger that catches a disarmed alarm does the job; the later ones are safety nets that never fire unnecessarily. Each sends a push notification to my iPhone confirming the arm.
+Forgetting to arm the alarm is a small thing that still gets under your skin. I use several staggered time triggers in the evening, each gated on the panel still being disarmed. The first one that fires does the work; the rest are backups that usually no-op. Each successful arm sends a push to my phone.
 
 ```yaml
-alias: Arm at 9 PM
+# Pattern: repeat trigger: time with different `at` values after dark
+alias: Scheduled evening arm (example)
 triggers:
   - trigger: time
-    at: '21:00:00'
+    at: "HH:MM:SS" # your chosen evening times
 conditions:
   - condition: device
     type: is_disarmed
 actions:
   - type: arm_home
-  - action: notify.mobile_app_iphone
+  - action: notify.mobile_app_your_phone
     data:
-      title: SimpliSafe Armed
+      title: Alarm armed
       message: Armed to Home
 ```
 
-On weekday mornings, a separate automation checks at 8:15 AM whether the alarm is still disarmed — a useful reminder if I've left for work and forgotten.
+On weekday mornings I run another check before the household is usually gone for the day. If the system is still disarmed, I get a nudge in case someone forgot to arm on the way out.
 
 ### The Doorbell Fingerprint Chain Reaction
 
-This is probably my favorite automation in the whole system. My UniFi doorbell supports fingerprint scanning, and when it reads a registered print, it fires a webhook to Home Assistant. From there, a single automation triggers a multi-step chain: notify my phone, disarm SimpliSafe, unlock the front door smart lock, and turn on the den light — all simultaneously. Walking up to my front door and having everything just *open* feels genuinely magical.
+This is probably my favorite automation in the whole system. My UniFi doorbell can read a registered fingerprint and hit a webhook in Home Assistant. One automation then does the whole routine: phone notification, disarm SimpliSafe, unlock the front lock, turn on a nearby inside light. Walking up and having the door ready without digging for keys still feels good every time.
 
 ```yaml
-alias: Doorbell Fingerprint Received
+alias: Doorbell fingerprint (example)
 triggers:
   - trigger: webhook
-    webhook_id: unifi_doorbell_fingerprint
+    webhook_id: your_webhook_id
 actions:
-  - action: notify.mobile_app_iphone
+  - action: notify.mobile_app_your_phone
     data:
       message: Fingerprint scanned
   - action: alarm_control_panel.alarm_disarm
@@ -66,20 +67,20 @@ actions:
       device_id: <front_door_lock>
   - action: light.turn_on
     target:
-      entity_id: light.den
+      entity_id: light.some_inside_light
 ```
 
 ### Lock the Front Door. Then Lock It Again.
 
-Smart locks are only as good as their reliability, and I don't trust any single automation with something as important as a locked door. The front door is automatically locked at 10 PM, 11 PM, midnight, 2 AM, 4 AM, and 6 AM. Yes, that's six separate lock commands across the night. Is it overkill? Probably. Does it give me peace of mind? Absolutely.
+Smart locks are only as good as their reliability, and I don't trust any single automation with something as important as a locked door. The front door re-locks on a handful of overnight checkpoints, not just once. Overkill? Probably. Does it help me sleep? Yes.
 
 ### Unusual Hour Unlock Alerts
 
-If the front door unlocks between 11 PM and 6 AM, I get an immediate push notification with a timestamp. No conditions — if it's unlocked in that window, I want to know about it.
+If the front door unlocks during the hours I treat as "should be quiet," I get an immediate push with a timestamp. No extra conditions. If it unlocks in that window, I want to know.
 
 ### SimpliSafe RF Jamming Detection
 
-This one I built after reading about how some burglars use RF jammers to defeat wireless alarm systems. SimpliSafe exposes RF jamming state as an attribute in Home Assistant, so I built an automation that watches for it and fires an alert the moment it's detected. Hopefully I never see this notification in the wild.
+I added this after reading about burglars using RF jammers against wireless alarms. SimpliSafe exposes jamming state in Home Assistant, so I have an automation that fires the moment it sees a jam. I hope that notification never fires for real.
 
 ---
 
@@ -87,21 +88,21 @@ This one I built after reading about how some burglars use RF jammers to defeat 
 
 ### The Wind-Down Sequence
 
-At 9 PM, any bedroom lights that are already on get transitioned to a deep purple at 25% brightness (`hs_color: [278, 95]`, brightness: 64/255). Then, using Home Assistant's built-in `transition` parameter set to 3600 seconds, the lights fade to off over the course of an hour — arriving at full darkness right around 10 PM.
+In the evening, any bedroom lights that are already on get transitioned to a deep purple at low brightness (`hs_color: [278, 95]`, brightness scaled down). Then I use Home Assistant's `transition` for a long fade so they drift off over roughly an hour instead of snapping off.
 
-This is one of those automations that required reading the docs carefully. The trick is to first call `light.turn_on` with the color and brightness (transition: 1 second, so it snaps to purple immediately), then immediately call `light.turn_off` with `transition: 3600`. Home Assistant interprets this as a slow fade-to-off from the current state — effectively a 60-minute sunset.
+This one took some reading. The sequence is `light.turn_on` with the color and a short transition so it snaps to purple, then `light.turn_off` with a long `transition`. Home Assistant treats that as a long fade from the current state, which works out like a slow sunset.
 
-At 10 PM, a backup automation explicitly turns off all bedroom lights (Ami's lamp, Chase's lamp, bedroom overhead, headboard) for anyone who fell asleep before the fade completed.
+A later backup automation force-clears the bedroom group for anyone who fell asleep before the fade finished.
 
 ### Winter Wake-Up Lighting
 
-From October through April, Monday through Thursday, the living room light begins a 30-minute sunrise simulation at 6 AM. It starts at 1% brightness with a warm 2700K color temperature, then transitions to 100% over the next 30 minutes. Waking up to gradually increasing light rather than an alarm is a small quality-of-life improvement that's hard to quantify but genuinely noticeable.
+In the cooler months, on the weekdays I care about, the living room light runs a gradual sunrise over a fixed window before the household is usually up. It starts barely on at a warm color temp and ramps to full over the same window. I still use an alarm sometimes, but the light change alone is a noticeable upgrade.
 
 ```yaml
-alias: Winter Wake-Up Lighting
+alias: Seasonal wake lighting (example)
 conditions:
   - condition: template
-    value_template: '{{ now().month >= 10 or now().month <= 4 }}'
+    value_template: "{{ your_month_window }}"
 actions:
   - action: light.turn_on
     data:
@@ -111,26 +112,26 @@ actions:
   - action: light.turn_on
     data:
       brightness_pct: 100
-      transition: 1800
+      transition: 1800 # half of total ramp; tune to taste
 ```
 
 ### UniFi Person Detection → Night Lights
 
-When UniFi Protect detects a person at night (after sunset, before sunrise), my string lights automatically turn on for 15 minutes, then turn off. The automation uses `mode: restart`, so if another person is detected while the lights are on, the 15-minute timer resets. This doubles as a security deterrent and a practical "someone's home" indicator.
+When UniFi Protect sees a person at night (after sunset, before sunrise), my string lights turn on for a bounded period, then turn off. The automation uses `mode: restart`, so if another person shows up while the timer is running, the timer starts over. Good for security and also a clear "someone is outside" signal.
 
 ### Daily Light Schedule
 
-A single automation handles the weekday rhythm of the den: lights on at 8:20 AM, off at 6:30 PM. The same automation handles bar lights and the garage light at 10 PM every night. Consolidating related schedules into one automation with a `choose` block makes maintenance much easier than managing a dozen separate time automations.
+One automation handles the weekday rhythm for a main living space (morning on, evening off) and a separate late-evening pass for a couple of circuits I do not want on all night. Packing related schedules into one `choose` block is easier to maintain than a pile of separate time triggers.
 
 ---
 
 ## Air Quality: The Dyson Deep Integration
 
-Living in Oakland, air quality is something I think about — wildfire smoke season is real, and the bedroom PM2.5 sensor I have connected to Home Assistant gives me granular data.
+I live in Oakland, so smoke season is on my mind. I have a bedroom PM2.5 sensor in Home Assistant and I actually look at the numbers.
 
 ### Automatic AQI Calculation in Jinja2
 
-The EPA's PM2.5-to-AQI formula isn't trivial, but Home Assistant's Jinja2 templating is powerful enough to implement it directly in an automation. I wrote a custom template that computes the AQI from raw PM2.5 readings using the official EPA breakpoints, and use that value in two places: the air quality alert that turns on the Dyson automatically, and the morning summary notification.
+The EPA PM2.5 to AQI math is annoying on paper, but Jinja2 in Home Assistant can handle it. I wrote a template that walks the official breakpoints from the raw PM2.5 reading, then feed that value into the Dyson-on alert and the morning summary.
 
 ```jinja2
 {%- set pm25 = states('sensor.bedroom_pm_2_5') | float %}
@@ -142,23 +143,23 @@ The EPA's PM2.5-to-AQI formula isn't trivial, but Home Assistant's Jinja2 templa
 ...
 ```
 
-If the AQI crosses 100 and the Dyson is off, the automation turns it on at 60% power, sends a push notification with the exact AQI reading, then steps it down to 30% after 20 minutes. This prevents the fan from running full blast all night when the initial spike passes.
+If the AQI crosses a threshold I picked and the Dyson is off, the automation turns it on at a moderate level, sends a push with the reading, then eases it down after a delay so it does not sit at full blast all night after a short spike.
 
 ### Air Purifier and Fan Schedule
 
-During the day (10 AM–7 PM), the air purifier runs on a schedule, and the Dyson bedroom fan runs at 40% in "Cool" mode. At 11:30 PM, a safety automation shuts off the Dyson if it's still running — a precaution against leaving a powerful fan running all night unintentionally.
+During daytime hours the air purifier follows a schedule, and the bedroom fan sits at a fixed moderate level in Cool mode. Before bed I have a safety automation that turns the fan off if it is still running, so I do not leave a strong fan on all night by accident.
 
 ---
 
 ## 3D Printing: Safety First
 
-I run OctoPrint for 3D printing, and multi-hour prints create real safety concerns. I've built three automations around the printer:
+I run OctoPrint, and long prints are a real fire and power concern. Three automations cover it:
 
-**Emergency Stop on Smoke/CO**: If any of the eight smoke and CO detectors in the house triggers, OctoPrint immediately cancels the current print job and I get a notification. The automation watches all detectors in parallel — no single point of failure.
+**Emergency stop on smoke or CO:** If any of the smoke or CO detectors trip, OctoPrint cancels the current job and I get a notification. The automation watches every detector in parallel so one bad sensor does not block the rest.
 
-**Idle Printer Alert**: If OctoPrint has been idle for 30 minutes but the bed temperature is still above 100°C, I get a notification reminding me the printer is still on. This catches the "walked away after a print finished" scenario that can waste power or create a fire risk.
+**Idle printer alert:** If OctoPrint has been idle for a while but the bed is still over a temperature I consider "too hot to ignore," I get a reminder that the printer is on. That covers the classic "print finished, I walked away" case.
 
-**Print Completion Notification**: When a print finishes successfully (the automation carefully excludes cancellations by checking `octoprint_current_state`), I get a push notification with the filename of the completed print.
+**Print finished:** When a job completes successfully (the automation checks `octoprint_current_state` so cancellations do not spam me), I get a push with the filename.
 
 ---
 
@@ -166,40 +167,40 @@ I run OctoPrint for 3D printing, and multi-hour prints create real safety concer
 
 ### Leak Detection Everywhere
 
-I have leak sensors under the toilet, water heater, kitchen sink, dishwasher, fridge, laundry, coffee maker, and two bathroom sinks. A single automation watches all of them in `mode: parallel` and sends an immediate alert naming the specific sensor that triggered. Water damage is expensive — this one is pure insurance.
+Leak sensors sit in the usual high-risk spots (baths, kitchen, appliances, utility areas). One automation watches all of them in `mode: parallel` and names the sensor in the alert. Water damage is expensive; this is cheap insurance.
 
 ### Pi-hole Monitoring
 
-My Pi-hole DNS ad-blocker runs on a local server, and if it goes down, network behavior degrades noticeably. Every 15 minutes, if the Pi-hole is unavailable, I get a notification with a formatted timestamp. Simple, but useful.
+Pi-hole runs on a local box. If it stops answering DNS, the house feels broken fast. On a fixed interval, if Pi-hole is down, I get a notification with a timestamp.
 
 ### Low Battery Notifications
 
-Rather than write a custom automation for each battery-powered device, I use the excellent community blueprint from `sbyx` that monitors all battery sensors and sends a single notification listing every device below 25%. One automation to rule them all.
+Instead of one automation per device, I use the community blueprint from `sbyx` that rolls every battery sensor below a threshold into a single message.
 
 ### Morning Summary
 
-Every morning — at 6:30 AM on weekdays, 8:30 AM on weekends — I receive a rich push notification with: bedroom temperature, humidity, computed PM2.5 AQI with color-coded category, outdoor weather and temperature from OpenWeatherMap, and rainfall if applicable. It's the first thing I see on my phone each morning, and it takes zero effort to produce.
+On a different schedule for weekdays versus weekends, I get a push with indoor temp and humidity, the PM2.5 AQI with a color bucket, OpenWeatherMap for outside temp and rain when it matters. First glance at the phone, no manual assembly.
 
 ---
 
 ## Lessons Learned
 
-A few things I'd tell myself if I were starting over:
+If I started again I would still do most of this, but a few choices saved headaches:
 
-**Use `mode: restart` for sensor-triggered lights.** If you're turning on lights when a sensor fires, you almost certainly want the timer to reset on subsequent triggers — not queue up a second execution.
+**Use `mode: restart` for sensor-driven lights.** If a motion event should extend a timer, you want the timer to reset, not stack duplicate runs.
 
-**Condition your arming automations.** An alarm that tries to arm itself when it's already armed throws errors and creates noise. Always check current state first.
+**Gate your arm commands.** Arming when already armed throws errors and noise. Check state first.
 
-**One multi-trigger automation beats three single-trigger automations** for related schedules. The `choose` block in Home Assistant is underused and makes intent much clearer.
+**Prefer one automation with `choose` over three copies** when the schedules are related. Easier to read later.
 
-**Webhooks are the universal integration layer.** The UniFi fingerprint integration isn't natively supported in Home Assistant, but a webhook listener turns any system that can make an HTTP POST into a first-class automation trigger.
+**Webhooks fix weird gaps.** UniFi fingerprint is not a first-class Home Assistant integration for me, but anything that can POST can hit a webhook and become a trigger.
 
-**Build notifications into everything while testing, remove them when stable.** I had temporary notifications on every automation when building them — invaluable for debugging, but noisy in production.
+**Spam yourself while debugging, then strip notifications.** Temporary pushes on every new automation made tuning faster, then I peeled them back once things were stable.
 
 ---
 
-My Home Assistant config has grown organically, and not everything is perfectly organized. But it does exactly what I want: it runs quietly, handles edge cases, and mostly just disappears into the background of daily life. The best sign that an automation is working is that you forget it exists.
+The config is messy in places, but it does what I care about: it stays quiet, handles a few edge cases, and mostly stays out of the way. When I stop noticing an automation, that usually means it is doing its job.
 
-If you're just getting started with Home Assistant, pick one problem to solve — maybe the "did I lock the door?" anxiety — and build from there. The rabbit hole is deep, and the community blueprints at the [Home Assistant Community Store](https://hacs.xyz/) are a great way to get to good automations quickly.
+If you are new to Home Assistant, pick one annoyance (for me it was "did I lock the door?") and solve that first. The [Home Assistant Community Store](https://hacs.xyz/) blueprints are a fast way to borrow patterns that already work.
 
-Happy automating.
+That is the setup. Good luck with yours.
