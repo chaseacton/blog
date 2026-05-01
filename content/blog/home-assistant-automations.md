@@ -1,6 +1,6 @@
 +++
 authors = ["Chase Acton"]
-title = "How I Automated My Entire Home with Home Assistant (And Why You Should Too)"
+title = "My home automation Setup with Home Assistant"
 date = "2026-04-30"
 description = "Security, lighting, air quality, 3D printing safety, and lessons learned from a layered Home Assistant setup."
 tags = [
