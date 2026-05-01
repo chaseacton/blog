@@ -194,7 +194,7 @@ actions:
 
 ### UniFi Person Detection → Night Lights
 
-When UniFi Protect detects a person at night, my outdoor lights turn on for a period, then turn off. The automation uses `mode: restart`, so if another person shows up while the timer is running, the timer starts over. This helps scare off anyone who isn't supposed to be there and helps provide better lighting for my outdoor cameras. I have a similar routine that triggers when SimpliSafe's alarm is triggered. 
+When UniFi Protect detects a person at night, my outdoor lights turn on for a period, then turn off. The automation uses `mode: restart`, so if another person shows up while the timer is running, the timer starts over. This helps scare off anyone who isn't supposed to be there and provides better lighting for my outdoor cameras. I have a similar routine that triggers when SimpliSafe's alarm is triggered. 
 ```yaml
 alias: Night person path lights (illustrative)
 mode: restart
