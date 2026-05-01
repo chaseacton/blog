@@ -1,6 +1,6 @@
 +++
 authors = ["Chase Acton"]
-title = "My home automation Setup with Home Assistant"
+title = "My home automation setup with Home Assistant"
 date = "2026-04-30"
 description = "Security, lighting, air quality, 3D printing safety, and lessons learned from a layered Home Assistant setup."
 tags = [
