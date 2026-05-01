@@ -19,7 +19,7 @@ I've been running Home Assistant for a while now. What started as a weekend proj
 ## The Philosophy: Automation Should Disappear
 
 The best home automation is the kind you stop thinking about. I never wanted a wall of tiles to babysit. I wanted something that runs in the background and keeps the house a little safer and more comfortable without me thinking about it. After a lot of tinkering I landed on:
-- SimpliSafe for security: features battery and cellular backup, and is actively monitored to dispatch the police or fire department if need
+- SimpliSafe for security: features battery and cellular backup, and is actively monitored to dispatch the police or fire department if needed
 - UniFi Protect for cameras: I run 15+ 2k and 4k cameras, rich AI detections, local storage and no monthly subscription fees
 - Philips Hue for lighting, motion sensors and smart plugs
 - Dyson Hot+Cool air purifier for air quality
