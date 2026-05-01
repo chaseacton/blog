@@ -3,4 +3,4 @@ title = "Contact"
 slug = "contact"
 +++
 
-The best way to reach me is through [GitHub](https://github.com/chaseacton).
+The best way to reach me is by email: [blog@chaseacton.com](mailto:blog@chaseacton.com).
