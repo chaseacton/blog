@@ -18,7 +18,11 @@ I've been running Home Assistant for a while now. What started as a weekend proj
 
 ## The Philosophy: Automation Should Disappear
 
-The best home automation is the kind you stop thinking about. I never wanted a wall of tiles to babysit. I wanted something that runs in the background and keeps the house a little safer and more comfortable without me thinking about it. After a lot of tinkering I landed on SimpliSafe for security, UniFi Protect for cameras, Philips Hue for lights, and a Dyson for air quality, all glued together in Home Assistant.
+The best home automation is the kind you stop thinking about. I never wanted a wall of tiles to babysit. I wanted something that runs in the background and keeps the house a little safer and more comfortable without me thinking about it. After a lot of tinkering I landed on:
+- SimpliSafe for security: features battery and cellular backup, and is actively monitored to dispatch the police or fire department if need
+- UniFi Protect for cameras: I run 15+ 2k and 4k cameras, rich AI detections, local storage and no monthly subscription fees
+- Philips Hue for lighting, motion sensors and smart plugs
+- Dyson Hot+Cool air purifier for air quality
 
 ---
 
@@ -51,7 +55,7 @@ On weekday mornings I run another check before the household is usually gone for
 
 ### The Doorbell Fingerprint Chain Reaction
 
-This is probably my favorite automation in the whole system. My UniFi doorbell can read a registered fingerprint and hit a webhook in Home Assistant. One automation then does the whole routine: phone notification, disarm SimpliSafe, unlock the front lock, turn on a nearby inside light. Walking up and having the door ready without digging for keys still feels good every time.
+This is probably my favorite automation in the whole system. My UniFi doorbell can read a registered fingerprint or NFC tag and hit a webhook in Home Assistant. One automation then does the whole routine: phone notification, disarm SimpliSafe, unlock the front door, turn on a nearby inside light. Walking up and having the door ready without digging for keys still feels good every time.
 
 ```yaml
 alias: Doorbell fingerprint (example)
@@ -92,7 +96,7 @@ actions:
 
 ### Unusual Hour Unlock Alerts
 
-If the front door unlocks during the hours I treat as "should be quiet," I get an immediate push with a timestamp. No extra conditions. If it unlocks in that window, I want to know.
+If the front door unlocks during the hours I don't expect it to, I get an immediate push with a timestamp. No extra conditions. If it unlocks in that window, I want to know.
 
 ```yaml
 alias: Night unlock alert (illustrative)
@@ -116,7 +120,7 @@ In the real automation I keep the time window in a template so I can tweak it wi
 
 ### SimpliSafe RF Jamming Detection
 
-I added this after reading about burglars using RF jammers against wireless alarms. SimpliSafe exposes jamming state in Home Assistant, so I have an automation that fires the moment it sees a jam. I hope that notification never fires for real.
+I added this after reading about burglars using RF jammers against wireless alarms. SimpliSafe exposes its RF jamming state in Home Assistant, so I have an automation that fires the moment it sees a jam. I hope to never see this notification for real.
 
 ```yaml
 alias: RF jamming alert (illustrative)
@@ -139,11 +143,9 @@ Entity id and attribute names differ by integration version; the idea is a binar
 
 ### The Wind-Down Sequence
 
-In the evening, any bedroom lights that are already on get transitioned to a deep purple at low brightness (`hs_color: [278, 95]`, brightness scaled down). Then I use Home Assistant's `transition` for a long fade so they drift off over roughly an hour instead of snapping off.
+In the evening, any bedroom lights that are already on get transitioned to a deep purple at low brightness. Then I use Home Assistant's `transition` for a long fade so they drift off over roughly an hour instead of snapping off.
 
 This one took some reading. The sequence is `light.turn_on` with the color and a short transition so it snaps to purple, then `light.turn_off` with a long `transition`. Home Assistant treats that as a long fade from the current state, which works out like a slow sunset.
-
-A later backup automation force-clears the bedroom group for anyone who fell asleep before the fade finished.
 
 ```yaml
 alias: Bedroom wind-down (illustrative)
@@ -171,7 +173,7 @@ actions:
 
 ### Winter Wake-Up Lighting
 
-In the cooler months, on the weekdays I care about, the living room light runs a gradual sunrise over a fixed window before the household is usually up. It starts barely on at a warm color temp and ramps to full over the same window. I still use an alarm sometimes, but the light change alone is a noticeable upgrade.
+In the darker months, on the weekdays I need to wake up early, the living room light runs a gradual sunrise over a fixed window before the household is usually up. It starts barely on at a warm color temp and ramps to full over 30 minutes. I still use an alarm sometimes, but the light change alone is a noticeable upgrade and I find myself waking up more natually, usually before my alarm goes off.
 
 ```yaml
 alias: Seasonal wake lighting (example)
@@ -192,8 +194,7 @@ actions:
 
 ### UniFi Person Detection → Night Lights
 
-When UniFi Protect sees a person at night (after sunset, before sunrise), my string lights turn on for a bounded period, then turn off. The automation uses `mode: restart`, so if another person shows up while the timer is running, the timer starts over. Good for security and also a clear "someone is outside" signal.
-
+When UniFi Protect detects a person at night, my outdoor lights turn on for a period, then turn off. The automation uses `mode: restart`, so if another person shows up while the timer is running, the timer starts over. This helps scare off anyone who isn't supposed to be there and helps provide better lighting for my outdoor cameras. I have a similar routine that triggers when SimpliSafe's alarm is triggered. 
 ```yaml
 alias: Night person path lights (illustrative)
 mode: restart
@@ -219,7 +220,7 @@ actions:
 
 ### Daily Light Schedule
 
-One automation handles the weekday rhythm for a main living space (morning on, evening off) and a separate late-evening pass for a couple of circuits I do not want on all night. Packing related schedules into one `choose` block is easier to maintain than a pile of separate time triggers.
+One automation handles the weekday rhythm for my home office (morning on, evening off) and a separate late-evening pass for a couple of circuits I do not want on all night. Packing related schedules into one `choose` block is easier to maintain than a pile of separate time triggers.
 
 ```yaml
 alias: Weekday lights schedule (illustrative)
@@ -261,11 +262,11 @@ In a real file each `trigger: time` gets its own `id` (shown above) so the `choo
 
 ## Air Quality: The Dyson Deep Integration
 
-I live in Oakland, so smoke season is on my mind. I have a bedroom PM2.5 sensor in Home Assistant and I actually look at the numbers.
+Living in the Bay Area, wildfire season and the smoke it brings is a real concern. My Dyson air purifier exposes [PM2.5 and PM10](https://www.epa.gov/pm-pollution/particulate-matter-pm-basics) sensors in Home Assistant and I actually look at the numbers.
 
 ### Automatic AQI Calculation in Jinja2
 
-The EPA PM2.5 to AQI math is annoying on paper, but Jinja2 in Home Assistant can handle it. I wrote a template that walks the official breakpoints from the raw PM2.5 reading, then feed that value into the Dyson-on alert and the morning summary. The pattern is the same for every concentration band: pick the AQI index range that matches the PM2.5 interval, then linearly interpolate between the low and high concentration endpoints for that band (the EPA publishes the exact µg/m³ cutpoints and formulas).
+The [EPA PM2.5 to AQI math](https://document.airnow.gov/technical-assistance-document-for-the-reporting-of-daily-air-quailty.pdf) is annoying on paper, but Jinja2 in Home Assistant can handle it. I wrote a template that walks the official breakpoints from the raw PM2.5 reading, then feed that value into the Dyson-on alert and the morning summary. The pattern is the same for every concentration band: pick the AQI index range that matches the PM2.5 interval, then linearly interpolate between the low and high concentration endpoints for that band (the EPA publishes the exact µg/m³ cutpoints and formulas).
 
 ```jinja2
 {%- set pm25 = states('sensor.bedroom_pm_2_5') | float %}
@@ -339,7 +340,7 @@ actions:
 
 ## 3D Printing: Safety First
 
-I run OctoPrint, and long prints are a real fire and power concern. Three automations cover it:
+I run [OctoPrint](https://octoprint.org), and long prints are a real fire and power concern. Three automations cover it:
 
 **Emergency stop on smoke or CO:** If any of the smoke or CO detectors trip, OctoPrint cancels the current job and I get a notification. The automation watches every detector in parallel so one bad sensor does not block the rest.
 
@@ -406,7 +407,7 @@ Your OctoPrint integration entity ids will differ; swap in the sensors and `octo
 
 ### Leak Detection Everywhere
 
-Leak sensors sit in the usual high-risk spots (baths, kitchen, appliances, utility areas). One automation watches all of them in `mode: parallel` and names the sensor in the alert. Water damage is expensive; this is cheap insurance.
+Leak sensors sit in the usual high-risk spots (baths, kitchen, appliances, utility areas). One automation watches all of them in `mode: parallel` and names the sensor in the alert. SimpliSafe actively monitors this and will call me if a water sensor trips, but water damage is expensive; this is cheap insurance. 
 
 ```yaml
 alias: Leak sensor notify (illustrative)
@@ -427,7 +428,7 @@ actions:
 
 ### Pi-hole Monitoring
 
-Pi-hole runs on a local box. If it stops answering DNS, the house feels broken fast. On a fixed interval, if Pi-hole is down, I get a notification with a timestamp.
+[Pi-hole](https://pi-hole.net) runs on a Raspberry Pi in my network rack. If it stops answering DNS, the house feels broken and ad-filled fast. On a fixed interval, if Pi-hole is down, I get a notification with a timestamp so I know to go fix it.
 
 ```yaml
 alias: Pi-hole deadman (illustrative)
@@ -445,11 +446,11 @@ actions:
 
 ### Low Battery Notifications
 
-Instead of one automation per device, I use the community blueprint from `sbyx` that rolls every battery sensor below a threshold into a single message.
+Many of my devices are battery-powered: entry sensors, glassbreak sensors, keypads, etc. Instead of one automation per device, I use this community [blueprint](https://community.home-assistant.io/t/low-battery-level-detection-notification-for-all-battery-sensors/258664) from `sbyx` that rolls every battery sensor below a threshold into a single message.
 
 ### Morning Summary
 
-On a different schedule for weekdays versus weekends, I get a push with indoor temp and humidity, the PM2.5 AQI with a color bucket, OpenWeatherMap for outside temp and rain when it matters. First glance at the phone, no manual assembly.
+On a different schedule for weekdays versus weekends, I get a push with indoor temp and humidity, the PM2.5 AQI with a color bucket, OpenWeatherMap weather for outside temp and rain when it matters.
 
 The automation is one `notify` with a **templated `message`** (and two `trigger: time` entries with different `id` values so a template condition can split weekday vs weekend). The body is mostly `states(...)` and `state_attr('weather.home', ...)` calls; the AQI line reuses the same template sensor the Dyson automation uses.
 
@@ -508,6 +509,4 @@ If I started again I would still do most of this, but a few choices saved headac
 
 The config is messy in places, but it does what I care about: it stays quiet, handles a few edge cases, and mostly stays out of the way. When I stop noticing an automation, that usually means it is doing its job.
 
-If you are new to Home Assistant, pick one annoyance (for me it was "did I lock the door?") and solve that first. The [Home Assistant Community Store](https://hacs.xyz/) blueprints are a fast way to borrow patterns that already work.
-
-That is the setup. Good luck with yours.
+If you are new to Home Assistant, pick one annoyance (for me it was "did I lock the door?") and solve that first. Home Assistant [blueprints](https://www.home-assistant.io/docs/automation/using_blueprints/) are a fast way to borrow patterns that already work.
