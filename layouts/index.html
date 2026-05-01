@@ -1,0 +1,12 @@
+{{ define "title" }}
+  {{ .Site.Title }}
+{{ end }}
+{{ define "content" }}
+  {{ $target := "blog/" | relLangURL }}
+  <section class="container post">
+    <p><a href="{{ $target }}">Continue to the blog</a>.</p>
+    <script>
+      location.replace("{{ $target }}");
+    </script>
+  </section>
+{{ end }}

@@ -17,6 +17,7 @@ noClasses = false
 unsafe = true
 
 [params]
+mainSections = ["blog"]
 author = "Chase Acton"
 description = "Personal blog — chaseacton.com"
 keywords = "blog,developer,home automation"
@@ -61,11 +62,6 @@ weight = 1
 url = "about/"
 
 [[languages.en.menu.main]]
-name = "Blog"
-weight = 2
-url = "posts/"
-
-[[languages.en.menu.main]]
 name = "Contact"
-weight = 3
+weight = 2
 url = "contact/"

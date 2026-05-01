@@ -9,6 +9,7 @@ tags = [
     "smart-home",
 ]
 slug = "home-assistant-automations"
+aliases = ["/posts/home-assistant-automations/"]
 +++
 
 I've been running Home Assistant for a while now. What started as a weekend project to control a few lights turned into a setup that handles security, air quality, and a few safety nets around the 3D printer. Below is what I actually run, how it works, and why I built it this way.
