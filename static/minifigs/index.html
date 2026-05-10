@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LEGO Minifigure Lookup</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f0f0f;
+    --surface: #181818;
+    --surface2: #222;
+    --border: #2a2a2a;
+    --border2: #333;
+    --text: #f0f0f0;
+    --muted: #888;
+    --accent: #f5c400;
+    --accent-dim: rgba(245,196,0,0.12);
+    --red: #ff4d4d;
+    --green: #4dff91;
+    --mono: 'DM Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    min-height: 100vh;
+    padding: 48px 32px;
+  }
+  header {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    margin-bottom: 40px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 24px;
+  }
+  header h1 { font-size: 22px; font-weight: 500; letter-spacing: -0.5px; }
+  header h1 span { color: var(--accent); }
+  header p { color: var(--muted); font-size: 13px; }
+
+  .grid { display: grid; grid-template-columns: 300px 1fr; gap: 24px; align-items: start; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    position: sticky;
+    top: 24px;
+  }
+  .panel h2 { font-size: 11px; font-weight: 500; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 20px; }
+
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; margin-top: 16px; }
+  label:first-of-type { margin-top: 0; }
+  label a { color: var(--accent); text-decoration: none; margin-left: 6px; font-size: 11px; }
+
+  input, textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 10px 12px;
+    outline: none;
+    transition: border-color 0.15s;
+    resize: vertical;
+  }
+  input:focus, textarea:focus { border-color: var(--accent); }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: var(--surface2); }
+  .btn:active { transform: scale(0.98); }
+  .btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #000;
+    width: 100%;
+    justify-content: center;
+    margin-top: 20px;
+  }
+  .btn.primary:hover { background: #ffd000; }
+  .btn.primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+  .btn svg { width: 15px; height: 15px; flex-shrink: 0; }
+
+  .status {
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--muted);
+    min-height: 18px;
+    font-family: var(--mono);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .status.err { color: var(--red); }
+  .status.ok  { color: var(--green); }
+
+  .results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    min-height: 34px;
+  }
+  .results-header h2 { font-size: 11px; font-weight: 500; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+
+  .empty {
+    background: var(--surface);
+    border: 1px dashed var(--border2);
+    border-radius: 12px;
+    padding: 64px 24px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .empty .big { font-size: 32px; margin-bottom: 12px; opacity: 0.4; }
+
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    background: var(--surface);
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--surface2); }
+  td { padding: 10px 14px; vertical-align: middle; }
+
+  .fig-img { width: 48px; height: 64px; object-fit: contain; border-radius: 6px; background: #1e1e1e; display: block; }
+  .fig-img-empty { width: 48px; height: 64px; border-radius: 6px; background: #1e1e1e; }
+  .fig-id { font-family: var(--mono); font-size: 12px; color: var(--accent); white-space: nowrap; text-decoration: none; }
+  .fig-id:hover { text-decoration: underline; }
+  .fig-name { font-weight: 500; font-size: 13px; }
+  .num-cell { font-family: var(--mono); font-size: 13px; text-align: right; }
+  .err-cell { color: var(--red); font-size: 12px; font-family: var(--mono); }
+  .loading-cell { color: var(--muted); font-size: 12px; font-family: var(--mono); }
+
+  .set-chips { display: flex; flex-wrap: wrap; gap: 4px; max-width: 260px; }
+  .set-chip { font-size: 11px; font-family: var(--mono); background: var(--surface2); border: 1px solid var(--border2); border-radius: 4px; padding: 2px 7px; color: var(--muted); }
+  .set-chip a { color: inherit; text-decoration: none; }
+  .set-chip a:hover { color: var(--text); }
+  .more-sets { font-size: 11px; color: var(--muted); font-family: var(--mono); align-self: center; }
+
+  .link-cell a { color: var(--muted); text-decoration: none; font-size: 12px; font-family: var(--mono); margin-right: 10px; }
+  .link-cell a:hover { color: var(--text); }
+
+  .bottom-actions { display: flex; gap: 8px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+  .copy-msg { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner { display: inline-block; width: 12px; height: 12px; border: 1.5px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>LEGO <span>Minifigure Lookup</span></h1>
+  <p>Powered by Rebrickable API</p>
+</header>
+
+<div class="grid">
+
+  <div class="panel">
+    <h2>Config</h2>
+
+    <label>Rebrickable API key
+      <a href="https://rebrickable.com/api/" target="_blank">get one free ↗</a>
+    </label>
+    <input type="password" id="apiKey" placeholder="paste your key here" />
+
+    <label>Minifigure IDs <span style="opacity:.5">(one per line)</span></label>
+    <textarea id="figInput" rows="10" placeholder="SW0110&#10;fig-003530&#10;hp001&#10;COL001"></textarea>
+    <p style="font-size:11px;color:var(--muted);line-height:1.45;margin-top:8px;">
+      Accepts Rebrickable (<span style="font-family:var(--mono)">fig-…</span>) and BrickLink catalog codes (<span style="font-family:var(--mono)">SW0110</span>, <span style="font-family:var(--mono)">hp001</span>).
+      <strong>Rebrickable API:</strong> only <span style="font-family:var(--mono)">/lego/parts/</span> supports <span style="font-family:var(--mono)">bricklink_id</span> — <span style="font-family:var(--mono)">/lego/minifigs/</span> has no BrickLink filter (only <span style="font-family:var(--mono)">search</span>, <span style="font-family:var(--mono)">in_set_num</span>, etc.). See
+      <a href="https://rebrickable.com/api/v3/swagger/?format=openapi" target="_blank">OpenAPI ↗</a>.
+      BrickLink blocks in-browser reads, so catalog HTML is loaded via <strong>public CORS proxies</strong> (your Rebrickable key is never sent there).
+    </p>
+
+    <label>Optional BrickLink paste <span style="opacity:.5">(before lookup if proxies fail)</span></label>
+    <textarea id="blPaste" rows="4" placeholder="Paste anything that contains lines like: Minifig No: SW0110 Name: … (from BrickLink “View Source”, or after opening a mirror link below)"></textarea>
+    <button type="button" class="btn" style="margin-top:10px;width:100%;justify-content:center;font-size:12px" onclick="generateBrickLinkMirrorLinks()">
+      Generate mirror URLs (open each → Select All → Copy → paste above → Look up again)
+    </button>
+    <textarea id="mirrorLinksOut" rows="1" readonly style="display:none;margin-top:10px;font-size:11px;line-height:1.4;min-height:72px;background:var(--bg);color:var(--muted)" aria-label="Mirror URLs"></textarea>
+
+    <button class="btn primary" id="fetchBtn" onclick="fetchFigs()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      Look up minifigures
+    </button>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div>
+    <div class="results-header">
+      <h2>Results</h2>
+    </div>
+
+    <div id="emptyState" class="empty">
+      <div class="big">🧑‍🚀</div>
+      Enter minifigure IDs and click Look up minifigures
+    </div>
+
+    <div id="tableWrap" class="table-wrap" style="display:none">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:60px"></th>
+            <th>You entered</th>
+            <th>Fig ID</th>
+            <th>Name</th>
+            <th style="text-align:right">Parts</th>
+            <th>Appears in sets</th>
+            <th>Links</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+
+    <div id="bottomActions" style="display:none" class="bottom-actions">
+      <button class="btn" id="copyBtn" onclick="copyTSV()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        Copy for Google Sheets
+      </button>
+      <button class="btn" onclick="clearAll()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6l-1 14H6L5 6M10 11v6M14 11v6M8 6V4h8v2"/></svg>
+        Clear
+      </button>
+      <span id="copyMsg" class="copy-msg"></span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const BASE = 'https://rebrickable.com/api/v3/lego/';
+/** BrickLink blocks cross-origin requests; browsers opening this file as file:// cannot fetch bricklink.com directly. */
+let blPasteNameByCode = Object.create(null);
+let rows = [];
+
+function brickLinkLegacyCatalogURL(blCode) {
+  return `https://www.bricklink.com/catalogItemIn.asp?itemType=M&itemNo=${encodeURIComponent(blCode)}`;
+}
+
+/** Proxies (BrickLink has no CORS). Last entry is allorigins JSON wrapper. */
+function brickLinkMirrorUrls(target) {
+  return [
+    `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(target)}`,
+    `https://r.jina.ai/${target}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
+    `https://api.allorigins.win/get?url=${encodeURIComponent(target)}`,
+  ];
+}
+
+function generateBrickLinkMirrorLinks() {
+  const raw = document.getElementById('figInput').value.trim().split('\n').map((s) => s.trim()).filter(Boolean);
+  const codes = [...new Set(raw.filter((line) => !normalizeFigKey(line)))];
+  if (!codes.length) {
+    setStatus('Add at least one BrickLink-style ID (not fig-…) in the list first.', 'err');
+    return;
+  }
+  const lines = [
+    'For each block: open the URLs in order until one loads → Select All (Cmd/Ctrl+A) → Copy → paste into “Optional BrickLink paste” → run Look up again.',
+    '',
+  ];
+  for (const code of codes) {
+    const target = brickLinkLegacyCatalogURL(code);
+    lines.push(`=== ${code} ===`);
+    for (const u of brickLinkMirrorUrls(target)) lines.push(u);
+    lines.push('');
+  }
+  const out = document.getElementById('mirrorLinksOut');
+  out.style.display = 'block';
+  out.rows = Math.min(18, 4 + codes.length * 5);
+  out.value = lines.join('\n');
+  out.focus();
+  out.select();
+  setStatus('Mirror URLs generated — copy from the box below the button if needed.', 'ok');
+}
+
+function getKey() {
+  return localStorage.getItem('rb_key') || document.getElementById('apiKey').value.trim();
+}
+
+function setStatus(msg, type) {
+  const el = document.getElementById('status');
+  el.className = 'status' + (type ? ' ' + type : '');
+  el.innerHTML = type === 'loading' ? `<span class="spinner"></span> ${msg}` : msg;
+}
+
+async function rbFetch(url) {
+  const key = getKey();
+  if (!key) throw new Error('No API key entered.');
+  const res = await fetch(url, {
+    credentials: 'omit',
+    headers: { Authorization: `key ${key}`, Accept: 'application/json' },
+  });
+  if (res.status === 404) throw new Error('Not found (404)');
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+/** Like rbFetch but returns null on 404 instead of throwing. */
+async function rbFetchMaybe(url) {
+  try {
+    return await rbFetch(url);
+  } catch (e) {
+    if ((e.message || '').includes('404')) return null;
+    throw e;
+  }
+}
+
+function normalizeFigKey(s) {
+  const m = String(s).trim().match(/^fig-(\d+)$/i);
+  return m ? `fig-${m[1]}` : null;
+}
+
+function directLookupCandidates(trimmed) {
+  const fig = normalizeFigKey(trimmed);
+  if (fig) return [fig];
+  const u = trimmed.trim();
+  const out = [];
+  const push = (x) => { if (x && !out.includes(x)) out.push(x); };
+  push(u);
+  const up = u.toUpperCase();
+  const lo = u.toLowerCase();
+  if (up !== u) push(up);
+  if (lo !== u) push(lo);
+  return out;
+}
+
+function normName(s) {
+  return String(s || '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function pickBestFromSearchResults(results, hintName) {
+  const target = normName(hintName);
+  if (!results.length) return null;
+  const exact = results.filter(r => normName(r.name || r.set_name) === target);
+  if (exact.length === 1) return exact[0];
+  const loose = results.filter(r => {
+    const n = normName(r.name || r.set_name);
+    if (!n || !target) return false;
+    return n.includes(target) || target.includes(n);
+  });
+  if (loose.length === 1) return loose[0];
+  if (loose.length > 1) {
+    loose.sort((a, b) => normName(b.name || b.set_name).length - normName(a.name || a.set_name).length);
+    return loose[0];
+  }
+  return null;
+}
+
+async function rebrickableSearchMinifigs(term, pageSize) {
+  const ps = pageSize || 500;
+  const url = BASE + `minifigs/?search=${encodeURIComponent(term)}&page_size=${ps}`;
+  const data = await rbFetch(url);
+  return data.results || [];
+}
+
+async function resolveMinifigRecord(trimmed) {
+  const requested = trimmed;
+
+  /* Rebrickable minifigs always use set_num fig-12345 — BrickLink codes never work as /minifigs/{id}/ (avoid useless 404s). */
+  const figNorm = normalizeFigKey(trimmed);
+  if (figNorm) {
+    const fig = await rbFetchMaybe(BASE + `minifigs/${encodeURIComponent(figNorm)}/`);
+    if (fig) {
+      const key = fig.set_num || fig.fig_num || figNorm;
+      return { fig, resolvedKey: key, resolution: 'rebrickable-direct', requested };
+    }
+  }
+
+  const searchTerms = [...new Set([trimmed, trimmed.toUpperCase(), trimmed.toLowerCase()].filter(Boolean))];
+  for (const st of searchTerms) {
+    const results = await rebrickableSearchMinifigs(st, 1000);
+    const needle = normName(st);
+    const jsonHits = results.filter(r => normName(JSON.stringify(r)).includes(needle));
+    const pool = jsonHits.length === 1 ? jsonHits : results;
+    const pick =
+      pool.length === 1
+        ? pool[0]
+        : pool.find(r => normName(r.set_num || '') === needle) || pickBestFromSearchResults(pool, st);
+    if (pick) {
+      const key = pick.set_num || pick.fig_num;
+      if (key) {
+        const fig = await rbFetchMaybe(BASE + `minifigs/${encodeURIComponent(key)}/`);
+        if (fig) return { fig, resolvedKey: key, resolution: 'rebrickable-search', requested };
+      }
+    }
+  }
+
+  const blCodes = directLookupCandidates(trimmed);
+  for (const blCode of blCodes) {
+    const pastedTitle = lookupPasteCatalogTitle(blCode);
+    if (pastedTitle) {
+      setStatus(`Using pasted BrickLink title for ${blCode}…`, 'loading');
+      await new Promise((r) => setTimeout(r, 200));
+      const viaRb = await resolveFigViaRebrickableNameSearch(pastedTitle);
+      if (viaRb)
+        return {
+          fig: viaRb.fig,
+          resolvedKey: viaRb.resolvedKey,
+          resolution: 'bricklink-paste',
+          requested,
+          blCatalogCode: blCode,
+          blCatalogName: pastedTitle,
+        };
+    }
+  }
+
+  for (const blCode of blCodes) {
+    setStatus(`BrickLink catalog (via proxy) ${blCode}…`, 'loading');
+    const mirrorText = await fetchBrickLinkMirrorText(blCode);
+    if (!mirrorText) continue;
+    if (/Item Not Found|No Item\(s\) were found/i.test(mirrorText)) continue;
+    if (/Just a moment\.{3}|challenge-platform|enable javascript/i.test(mirrorText)) continue;
+
+    const blName = parseMinifigCatalogNameFromMirror(mirrorText);
+    if (!blName) continue;
+
+    await new Promise((r) => setTimeout(r, 400));
+
+    const viaRb = await resolveFigViaRebrickableNameSearch(blName);
+    if (viaRb)
+      return {
+        fig: viaRb.fig,
+        resolvedKey: viaRb.resolvedKey,
+        resolution: 'bricklink-name-match',
+        requested,
+        blCatalogCode: blCode,
+        blCatalogName: blName,
+      };
+  }
+
+  return null;
+}
+
+async function fetchBrickLinkMirrorText(blCode) {
+  const target = brickLinkLegacyCatalogURL(blCode);
+  const urls = brickLinkMirrorUrls(target);
+  for (let ui = 0; ui < urls.length; ui++) {
+    const url = urls[ui];
+    const alloriginsJson = url.includes('allorigins.win/get?');
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const ctl = new AbortController();
+      const tid = setTimeout(() => ctl.abort(), 34000);
+      try {
+        const res = await fetch(url, { credentials: 'omit', signal: ctl.signal, referrerPolicy: 'no-referrer' });
+        if (!res.ok) throw new Error('status');
+        let text;
+        if (alloriginsJson) {
+          const j = await res.json();
+          text = typeof j.contents === 'string' ? j.contents : '';
+        } else {
+          text = await res.text();
+        }
+        text = String(text || '').trim();
+        if (text.length < 80) throw new Error('short');
+        if (/Item Not Found|No Item\(s\) were found/i.test(text)) throw new Error('nf');
+        if (/Just a moment\.{3}|challenge-platform|enable javascript/i.test(text)) throw new Error('cf');
+        return text;
+      } catch {
+        await new Promise((r) => setTimeout(r, 450 * (attempt + 1)));
+      } finally {
+        clearTimeout(tid);
+      }
+    }
+    await new Promise((r) => setTimeout(r, 280));
+  }
+  return null;
+}
+
+function lookupPasteCatalogTitle(blCode) {
+  const k = String(blCode).trim();
+  return blPasteNameByCode[k] || blPasteNameByCode[k.toUpperCase()] || blPasteNameByCode[k.toLowerCase()] || '';
+}
+
+function parseBlPasteMap(text) {
+  const map = Object.create(null);
+  const decoded = decodeHtmlEntities(String(text || ''));
+  const re = /Minifig No:\s*([A-Za-z0-9]+)\s*Name:\s*([^"<]+)/gi;
+  let m;
+  while ((m = re.exec(decoded)) !== null) {
+    const code = m[1].trim();
+    const name = m[2].trim().replace(/\s+/g, ' ');
+    if (code.length && name.length >= 4) map[code] = name;
+  }
+  return map;
+}
+
+function decodeHtmlEntities(html) {
+  if (!html.includes('&')) return html;
+  const ta = document.createElement('textarea');
+  ta.innerHTML = html;
+  return ta.value;
+}
+
+function parseMinifigCatalogNameFromMirror(raw) {
+  const slice = raw.includes('Markdown Content:') ? raw.slice(raw.indexOf('Markdown Content:')) : raw;
+  const decoded = decodeHtmlEntities(slice);
+
+  const htmlAttr = decoded.match(/Minifig No:\s*[A-Za-z0-9]+\s*Name:\s*([^"<]+)/i);
+  if (htmlAttr) {
+    const n = htmlAttr[1].trim().replace(/\s+/g, ' ');
+    if (n.length >= 4) return n;
+  }
+
+  const altMatch = decoded.match(/Minifig No:\s*[A-Za-z0-9]+\s*Name:\s*(.+?)(?=\]\()/);
+  if (altMatch) {
+    const n = altMatch[1].trim();
+    if (n.length >= 4) return n;
+  }
+
+  const loose = decoded.match(/Minifig No:\s*[A-Za-z0-9]+\s*Name:\s*([^\]\*\n]+)/i);
+  if (loose) {
+    let n = loose[1].trim();
+    n = n.replace(/\s*Sort Items By:\s*.*$/i, '').trim();
+    if (n.length >= 4) return n;
+  }
+
+  const junkRe = /^(list with images|thumbnail gallery|appears as regular|qty|catalog|marketplace|studio|community|forum)$/i;
+  const boldRe = /\*\*\s*([^*]+?)\s*\*\*/g;
+  const scored = [];
+  let m;
+  while ((m = boldRe.exec(decoded)) !== null) {
+    let cand = m[1].trim().replace(/\s+/g, ' ');
+    if (cand.length < 8) continue;
+    if (junkRe.test(cand)) continue;
+    if (/https?:\/\//i.test(cand)) continue;
+    if (/^\[/.test(cand)) continue;
+    if (/^minifig\s+no:/i.test(cand)) continue;
+    let score = cand.length;
+    if (cand.includes(' - ')) score += 80;
+    if (/^\d/.test(cand)) score += 10;
+    scored.push({ cand, score });
+  }
+  scored.sort((a, b) => b.score - a.score);
+  return scored[0]?.cand || null;
+}
+
+/** Try several search queries derived from BrickLink catalog title until Rebrickable returns a loadable minifig. */
+async function resolveFigViaRebrickableNameSearch(canonicalBlName) {
+  const tries = buildRebrickableNameSearchQueries(canonicalBlName);
+  const tried = new Set();
+  for (let ti = 0; ti < tries.length; ti++) {
+    const q = tries[ti];
+    if (ti > 0) await new Promise((r) => setTimeout(r, 220));
+    const key = normName(q);
+    if (!key || tried.has(key)) continue;
+    tried.add(key);
+
+    let nameResults = await rebrickableSearchMinifigs(q);
+    let chosen = pickBestFromSearchResults(nameResults, canonicalBlName);
+
+    if (!chosen && nameResults.length === 1) chosen = nameResults[0];
+
+    if (!chosen && nameResults.length > 1) {
+      const narrowed = nameResults.filter((r) => {
+        const n = normName(r.name || r.set_name);
+        const t = normName(canonicalBlName);
+        return n && t && (t.includes(n) || n.includes(t));
+      });
+      if (narrowed.length === 1) chosen = narrowed[0];
+    }
+
+    if (!chosen && nameResults.length > 1) chosen = pickMinifigByTokenOverlap(nameResults, canonicalBlName);
+
+    if (chosen) {
+      const figKey = chosen.set_num || chosen.fig_num;
+      const fig = figKey ? await rbFetchMaybe(BASE + `minifigs/${encodeURIComponent(figKey)}/`) : null;
+      if (fig) return { fig, resolvedKey: fig.set_num || fig.fig_num || figKey };
+    }
+  }
+  return null;
+}
+
+function pickMinifigByTokenOverlap(results, canonicalBlName) {
+  const stop = new Set([
+    'the', 'and', 'with', 'for', 'minifig', 'minifigure', 'part', 'parts', 'pattern', 'legs', 'arms', 'head', 'torso',
+    'dark', 'light', 'tan', 'white', 'black', 'blue', 'red', 'gray', 'grey', 'bluish', 'nougat', 'skin', 'vest',
+    'robe', 'belt', 'hair', 'cap', 'helmet', 'sand', 'orange', 'brown', 'yellow', 'green', 'purple',
+  ]);
+  const words = normName(canonicalBlName)
+    .split(/[\s\-_,.]+/)
+    .map((w) => w.replace(/[^a-z0-9]/g, ''))
+    .filter((w) => w.length >= 2 && !stop.has(w));
+  if (words.length < 2) return null;
+  let best = null;
+  let bestScore = -1;
+  for (const r of results) {
+    const n = normName(r.name || r.set_name);
+    let sc = 0;
+    for (const w of words) {
+      if (n.includes(w)) sc++;
+    }
+    if (sc > bestScore) {
+      bestScore = sc;
+      best = r;
+    }
+  }
+  const threshold = Math.max(2, Math.ceil(words.length * 0.42));
+  return best && bestScore >= threshold ? best : null;
+}
+
+function buildRebrickableNameSearchQueries(blName) {
+  const raw = blName.trim();
+  const out = [];
+  const push = (s) => {
+    const t = String(s || '').trim();
+    if (t.length >= 2 && !out.includes(t)) out.push(t);
+  };
+  push(raw);
+  if (raw.includes(' - ')) push(raw.split(' - ')[0].trim());
+  const noParen = raw
+    .replace(/\s*\([^)]{1,48}\)\s*/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (noParen !== raw) push(noParen);
+  if (noParen.includes(' - ')) push(noParen.split(' - ')[0].trim());
+  return out;
+}
+
+function brickLinkUrlForCode(code) {
+  return `https://www.bricklink.com/catalogItemIn.asp?itemType=M&itemNo=${encodeURIComponent(code)}`;
+}
+
+/** When we only know the Rebrickable side, search BrickLink by minifigure name (fig-… is not a BrickLink item number). */
+function brickLinkSearchMinifigUrl(displayNameOrFig) {
+  const q = encodeURIComponent(String(displayNameOrFig || '').trim());
+  return `https://www.bricklink.com/catalogSearch.asp?catType=M&q=${q}`;
+}
+
+function brickLinkUrlForRow(requestedId, blCatalogCode, figName, figNum) {
+  if (blCatalogCode) return brickLinkUrlForCode(blCatalogCode);
+  if (!normalizeFigKey(requestedId)) {
+    const code = requestedId.trim();
+    if (code) return brickLinkUrlForCode(code);
+  }
+  return brickLinkSearchMinifigUrl(figName || figNum);
+}
+
+async function fetchFigs() {
+  const key = document.getElementById('apiKey').value.trim() || getKey();
+  if (!key) { setStatus('Enter your Rebrickable API key first.', 'err'); return; }
+  localStorage.setItem('rb_key', key);
+
+  blPasteNameByCode = parseBlPasteMap(document.getElementById('blPaste').value);
+
+  const raw = document.getElementById('figInput').value.trim();
+  if (!raw) { setStatus('Enter at least one minifigure ID.', 'err'); return; }
+  const ids = [...new Set(raw.split('\n').map(s => s.trim()).filter(Boolean))];
+
+  document.getElementById('fetchBtn').disabled = true;
+  rows = [];
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('tableWrap').style.display = 'block';
+  document.getElementById('bottomActions').style.display = 'flex';
+
+  for (let i = 0; i < ids.length; i++) {
+    const requestedId = ids[i];
+    setStatus(`Fetching ${i + 1} / ${ids.length}: ${requestedId}`, 'loading');
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td colspan="7" class="loading-cell">Loading ${requestedId}…</td>`;
+    tbody.appendChild(tr);
+
+    try {
+      const resolved = await resolveMinifigRecord(requestedId);
+      if (!resolved)
+        throw new Error(
+          'Not found. Click “Generate mirror URLs”, open links until one loads, copy the page into “Optional BrickLink paste”, then Look up again — or check firewall/ad-block for codetabs / jina / allorigins.'
+        );
+
+      const { fig, resolvedKey, resolution, blCatalogCode } = resolved;
+      const figKeyForUrls = resolvedKey;
+
+      const setsData =
+        (await rbFetchMaybe(BASE + `minifigs/${encodeURIComponent(figKeyForUrls)}/sets/?page_size=5`)) ||
+        ({ count: 0, results: [] });
+
+      const sets = setsData.results || [];
+      const setCount = setsData.count || 0;
+      const figDisplayName = fig.name || fig.set_name || '';
+      const resolvedFigNum = fig.set_num || fig.fig_num || figKeyForUrls;
+
+      const row = {
+        requestedId,
+        resolution,
+        figNum: resolvedFigNum,
+        name: figDisplayName,
+        parts: fig.num_parts || 0,
+        img: fig.set_img_url || '',
+        rbUrl: fig.set_url || `https://rebrickable.com/minifigs/${encodeURIComponent(figKeyForUrls)}/`,
+        blUrl: brickLinkUrlForRow(requestedId, blCatalogCode, figDisplayName, resolvedFigNum),
+        setCount,
+        sets,
+      };
+      rows.push(row);
+
+      const chipsHtml = sets.length
+        ? `<div class="set-chips">
+            ${sets.map(s => `<span class="set-chip"><a href="https://rebrickable.com/sets/${s.set_num}/" target="_blank">${s.set_num}</a></span>`).join('')}
+            ${setCount > 5 ? `<span class="more-sets">+${setCount - 5} more</span>` : ''}
+           </div>`
+        : `<span style="color:var(--muted);font-size:12px;">—</span>`;
+
+      const via =
+        resolution === 'bricklink-name-match'
+          ? ` <span style="font-size:10px;color:var(--muted);">(via BrickLink→proxy)</span>`
+          : resolution === 'bricklink-paste'
+          ? ` <span style="font-size:10px;color:var(--muted);">(via pasted BL title)</span>`
+          : resolution === 'rebrickable-search'
+          ? ` <span style="font-size:10px;color:var(--muted);">(via RB search)</span>`
+          : '';
+
+      tr.innerHTML = `
+        <td>${row.img ? `<img class="fig-img" src="${row.img}" alt="">` : `<div class="fig-img-empty"></div>`}</td>
+        <td style="font-family:var(--mono);font-size:12px;color:var(--muted);">${escapeHtml(row.requestedId)}</td>
+        <td><a href="${row.rbUrl}" target="_blank" class="fig-id">${escapeHtml(row.figNum)}</a>${via}</td>
+        <td class="fig-name">${escapeHtml(row.name)}</td>
+        <td class="num-cell">${row.parts}</td>
+        <td>${chipsHtml}</td>
+        <td class="link-cell">
+          <a href="${row.rbUrl}" target="_blank">RB ↗</a>
+          <a href="${row.blUrl}" target="_blank">BL ↗</a>
+        </td>`;
+    } catch(e) {
+      rows.push({ requestedId, figNum: requestedId, error: e.message });
+      tr.innerHTML = `<td></td><td style="font-family:var(--mono);font-size:12px;color:var(--muted);">${escapeHtml(requestedId)}</td><td class="fig-id">${escapeHtml(requestedId)}</td><td class="err-cell" colspan="4">${escapeHtml(e.message)}</td>`;
+    }
+
+    await new Promise(r => setTimeout(r, 250));
+  }
+
+  const good = rows.filter(r => !r.error).length;
+  setStatus(`Done — ${good} of ${ids.length} loaded.`, good === ids.length ? 'ok' : '');
+  document.getElementById('fetchBtn').disabled = false;
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function copyTSV() {
+  if (!rows.length) return;
+  const headers = ['You entered','Fig ID','Name','Parts','Total Set Appearances','Sample Sets','Rebrickable URL','BrickLink URL'];
+  const lines = [headers.join('\t')];
+  rows.forEach(r => {
+    if (r.error) { lines.push([r.requestedId || r.figNum, r.figNum, 'ERROR: ' + r.error, '','','','',''].join('\t')); return; }
+    const sampleSets = (r.sets || []).map(s => s.set_num).join(', ');
+    lines.push([r.requestedId, r.figNum, r.name, r.parts, r.setCount, sampleSets, r.rbUrl, r.blUrl].join('\t'));
+  });
+  navigator.clipboard.writeText(lines.join('\n')).then(() => {
+    const btn = document.getElementById('copyBtn');
+    const msg = document.getElementById('copyMsg');
+    const orig = btn.innerHTML;
+    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2" style="width:15px;height:15px"><polyline points="20 6 9 17 4 12"/></svg> Copied!`;
+    msg.textContent = 'Paste into Google Sheets with Ctrl/Cmd+V';
+    setTimeout(() => { btn.innerHTML = orig; msg.textContent = ''; }, 3000);
+  });
+}
+
+function clearAll() {
+  rows = [];
+  document.getElementById('tbody').innerHTML = '';
+  document.getElementById('tableWrap').style.display = 'none';
+  document.getElementById('bottomActions').style.display = 'none';
+  document.getElementById('emptyState').style.display = 'block';
+  const ml = document.getElementById('mirrorLinksOut');
+  if (ml) {
+    ml.style.display = 'none';
+    ml.value = '';
+    ml.rows = 1;
+  }
+  setStatus('', '');
+}
+
+const saved = localStorage.getItem('rb_key');
+if (saved) document.getElementById('apiKey').value = saved;
+</script>
+</body>
+</html>
